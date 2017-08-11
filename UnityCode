@@ -1,0 +1,371 @@
+using UnityEngine;
+using System.Collections;
+using System;
+
+public class MapGenerator : MonoBehaviour
+{
+    public GameObject[] tiles;  //Sets a public array " [] " of GameObjects called tiles, available for
+                                //edit in the inspector.
+    public GameObject boulderPrefab;
+    public GameObject logPrefab;
+    public GameObject ironOrePrefab;
+    public GameObject playerPrefab;
+
+    private GameObject player;  //Sets a private gameObject that will be used in the Instantiation in
+                                //order to be able to delete the player upon map refreshing.
+    private bool playerCanSpawn;
+    private int xPlayerGridPos;
+    private int yPlayerGridPos;
+
+    public int width;           //Sets a public integer for width
+    public int height;          //Sets a public integer for height
+
+    private System.Random pseudoRandom;
+
+    public string seed;         //Sets a public string called "seed"
+    public bool useRandomSeed;  //If ticked, a random seed will be used as opposed to a user set seed
+
+    [Range(0, 100)]             //When placed before a struct, this denotes some properties about 
+                                //said struct.
+    public int waterFillPercent;   //A public integer that denotes how much of the map will be filled
+                                    //with tiles[0] "water".
+    [Range(1, 9)]               //The ranges are used as percentages but through testing I find that
+                                //the ones I have set work the best.
+    public int boulderFillPercent;
+
+    [Range(2, 10)]
+    public int logFillPercent;
+
+    [Range(0,100)]
+    public int ironFillPercent;
+
+    private int[,] map;                 //Declares a 2D array. Consider a 9x9 table fo values, the side numbers 
+                                        //are the number of columns and rows and data can be stored in
+                                        //those cells. In the cell  2,5 , denoted as  map[2,5] the data stored,
+                                        //in our case, is either a 0 or a 1. The map generator then computes
+                                        //this data into waSter and grass tiles.
+
+    private int[,] ironOreMap;          //Another 2D array, but this generates an ironOreMap instead of 
+                                        //one that spawns grass and water
+    private bool[,] hasOre;             //A 2D array of bools help with making sure grass and water
+                                        //tiles arenot placed on top of each other.
+
+    void Start()
+    {
+        playerCanSpawn = true;
+        GenerateMap();          //At the start, we simply generate the whole map...
+        
+    }
+
+    void Update()
+    {
+        if (Input.GetMouseButtonDown(0))    //Every frame, we check if the mouse has been clicked
+        {
+            playerCanSpawn = true;
+            GenerateMap();                  //and if so, we call the GenerateMap functiom.
+            
+        }
+    }
+
+    void GenerateMap()                      //This void handles all the map generation required
+    {                                       //By calling the relevant functions
+
+        foreach (Transform child in transform)  //To avoid placing tiles on a previous map, this will
+        {                                       //destroy the GameObjects childed to this.GameObject
+            GameObject.Destroy(child.gameObject);
+        }
+
+        if (player != null)
+        {
+            GameObject.Destroy(player);
+        }
+
+        map = new int[width, height];       //This is finally giving the previously initialised 2D
+                                            //integer array some values, being width and height
+        hasOre = new bool[width, height];   //This gives the hasOre array some dimensions
+        for (int x = 0; x < width; x++)     //This nested for loop sets all values in the array to
+        {                                   //false. This is potentially unnescessary, but is 
+            for (int y = 0; y < height; y++)//precautionary.
+            {
+
+                hasOre[x, y] = false;
+
+            }
+        }
+        
+
+        RandomFillMap(waterFillPercent, map);//Calls the function to fill the map with regular noise.
+
+        for (int i = 0; i < 5; i++)         //A for loop determines how many times the map will be
+        {                                   //smoothed.
+            SmoothMap(map);                 //Smoothes the map.
+        }
+
+        ironOreMap = new int[width, height]; //Gives the 2D array dimensions.
+
+        GenerateIronOreMap();               //Generates the iron ore map BEFORE the grass map. This is
+                                            //nescessary to make sure no tiles are placed on the iron
+                                            //ore.
+
+        PlaceMapTiles();                    //The map tiles are finally placed.
+
+        PlaceBoulders();                    //The boulders are placed
+
+        PlaceLogs();                        //BEFORE the logs. This is nescessary because in the 
+                                            //PlaceBoulders function, the tiles the boulders are placed
+                                            //on are set to have  map  value of 0, stopping logs from 
+                                            //spawning on boulders.
+        PlacePlayer();
+
+        map = null;                         //At the end of the generation, all  map  values are
+                                            //nullified.
+    }
+
+
+    void RandomFillMap(int fillPercent, int[,] usedMap)
+    {
+        if (useRandomSeed)                  //Checks if the useRandomSeed bool is checked.
+        {
+            float randNum = UnityEngine.Random.Range(0,100000);     //Generates a random number between 
+            seed = randNum.ToString();                          //0 and 100,000 and the seed number is
+        }                                                   //Then determined by this.
+
+        pseudoRandom = new System.Random(seed.GetHashCode());  //If a seed is present,
+                                                                    //a different random generation
+                                                                //system ( System.Random  as opposed to
+                                                            //UnityEngine.Random) is used to generate a
+                                                        //random number assosciated to a word's
+                                                    //hashcode and use that as the seed. However,
+                                                //the randomisation of System.Random is not wholly
+                                                //random but rather a complex algorithm that generates
+                                                //a longer number than just the haschode number. As
+                                                //such, the seed works as intended and the string 
+                                                //that is the seed will generate the same terrain
+                                                //each time.
+        for (int x = 0; x < width; x++)         
+        {                                       
+            for (int y = 0; y < height; y++)
+            {
+                if (x == 0 || x == width - 1 || y == 0 || y == height - 1) //These parameters check
+                {                                                      //that the tile is not a border
+                    usedMap[x, y] = 1;                                 //tile. If it is, the tile is forced
+                                                                //to store a map data of 1 ( water tile )
+                }
+                else
+                {
+                    usedMap[x, y] = (pseudoRandom.Next(0, 100) < fillPercent) ? 1 : 0; //Sets the map
+                                                                                     //data to be 1
+                                                                                 //if ( ? ) the random 
+                                                                             //number is less than the 
+                                                                         //randomFillPercent. Else ( : )
+                                                                     //it will store a 0.
+                }
+            }
+        }
+    }
+
+    void SmoothMap(int[,] usedMap)                //This function deals with smoothing the map and does so by checking
+                                    //a tile's neighbours, using the Cellular Automata algorithm.
+    {
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                int neighbourWallTiles = GetSurroundingWallCount(x, y, usedMap); //Declares an int that stores an 
+                                                                    //integer by passing both the x and
+                                                                //y values from the for loops to the 
+                                                            //GetSurroundingWallCount integer.
+                if (neighbourWallTiles > 4) //This whole  if else if  is the basic formula that is how
+                    usedMap[x, y] = 1;          //the Cellular Automata works. The maths is simple.
+                else if (neighbourWallTiles < 4)
+                    usedMap[x, y] = 0;
+
+            }
+        }
+    }
+
+    int GetSurroundingWallCount(int gridX, int gridY, int[,] usedMapCount)   //The x and y values passed in above are
+    {                                                   //converted to new integers; gridX and gridY.
+        int waterCount = 0;                              //Effectively refreshes the wallCount.
+        for (int neighbourX = gridX - 1; neighbourX <= gridX + 1; neighbourX++) //These two nested for
+        {                                                                   //loops scan a 3x3 area
+            for (int neighbourY = gridY - 1; neighbourY <= gridY + 1; neighbourY++) //a given tile.
+            {
+                if (neighbourX >= 0 && neighbourX < width && neighbourY >= 0 && neighbourY < height)
+                { //The above if statement is to make sure no data is collected nor generated about
+                  //cells outside the given height and width dimensions.
+                    if (neighbourX != gridX || neighbourY != gridY) //This checks that at least the x
+                    {                                           //or y position are not equal to the
+                                                            //relevant position of the center (grid)
+                                                        //tile.
+                        waterCount += usedMapCount[neighbourX, neighbourY]; //The wall count is increased by
+                                                              //however much 
+                    }
+                }
+                else
+                {
+                    waterCount++;
+                }
+            }
+        }
+
+        return waterCount;
+    }
+
+    void GenerateIronOreMap()
+    {
+
+        RandomFillMap(ironFillPercent, ironOreMap);
+
+        for (int i = 0; i < 1; i++)
+        {
+
+            SmoothMap(ironOreMap);
+        }
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+
+                float xPos = x * 0.32f;
+                float yPos = y * 0.32f;
+
+                if (ironOreMap[x, y] == 0)
+                {
+                    Instantiate(ironOrePrefab, new Vector2(xPos, yPos), Quaternion.identity, this.transform);
+                    hasOre[x, y] = true;
+                }
+
+                
+
+            }
+        }
+
+    }
+
+    void PlaceMapTiles()
+    {
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+
+               float  xPos = x * 0.32f;
+               float yPos = y * 0.32f;
+
+                if (map[x,y] == 0 && !hasOre[x,y])
+                {
+                    Instantiate(tiles[1], new Vector2(xPos, yPos), Quaternion.identity, this.transform);
+
+                } else if (map[x,y] == 1 && !hasOre[x,y])
+                {
+                    Instantiate(tiles[0], new Vector2(xPos, yPos), Quaternion.identity, this.transform);
+                }
+
+            }
+        }
+
+
+
+    }
+
+    void PlaceBoulders() //Uses a regular noise pattern.
+    {
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+
+                float xPos = x * 0.32f;
+                float yPos = y * 0.32f;
+
+                if (useRandomSeed)                  //Checks if the useRandomSeed bool is checked.
+                {
+                    float randNum = UnityEngine.Random.Range(0, 100000);     //Generates a random number between 
+                    seed = randNum.ToString();                          //0 and 100,000 and the seed number is
+                }                                                   //Then determined by this.
+
+                pseudoRandom = new System.Random(seed.GetHashCode());
+
+                if (map[x, y] == 0 && (UnityEngine.Random.Range(0, 100) < boulderFillPercent))
+                {
+                    Instantiate(boulderPrefab, new Vector2(xPos, yPos), Quaternion.identity
+                        , this.transform);
+
+                    map[x, y] = 1;
+
+                }
+            }
+        }
+
+    }
+
+    void PlaceLogs() //Uses a regular noise pattern.
+    {
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+
+                float xPos = x * 0.32f;
+                float yPos = y * 0.32f;
+
+                if (useRandomSeed)                  //Checks if the useRandomSeed bool is checked.
+                {
+                    float randNum = UnityEngine.Random.Range(0, 100000);     //Generates a random number between 
+                    seed = randNum.ToString();                          //0 and 100,000 and the seed number is
+                }                                                   //Then determined by this.
+
+                pseudoRandom = new System.Random(seed.GetHashCode());
+
+                if (map[x, y] == 0 && (UnityEngine.Random.Range(0, 100) < logFillPercent))
+                {
+                    Instantiate(logPrefab, new Vector2(xPos, yPos), Quaternion.identity
+                        , this.transform);
+
+                    map[x, y] = 1;
+
+                }
+            }
+        }
+    }
+
+    void PlacePlayer()
+    {
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+
+                float playerSpawnChance = UnityEngine.Random.Range(0,100);
+
+                if (map[x,y] == 0 && playerSpawnChance >= 95 && playerCanSpawn)
+                {
+                    Debug.Log(playerSpawnChance);
+
+                    float xPos = x * 0.32f;
+                    float yPos = y * 0.32f;
+
+                    player = (GameObject)Instantiate(playerPrefab, 
+                                        new Vector2(xPos, yPos),
+                                        Quaternion.identity);
+
+                    playerCanSpawn = false;
+
+                }
+
+            }
+        }
+
+        if (player == null)
+        {
+            PlacePlayer();
+        }
+
+    }
+}
