@@ -2,15 +2,6 @@
 #include <string>
 using namespace std;
 
-
-
-int main() {
-
-	cout << Encryptor('a') << endl;
-
-	return 0;
-}
-
 char Encryptor(char usedLetter) {
 
 	char encryptedLetter;
@@ -18,4 +9,23 @@ char Encryptor(char usedLetter) {
 	encryptedLetter = usedLetter + 1;
 
 	return encryptedLetter;
+}
+
+string Decryptor() {
+
+
+
+}
+
+int main() {
+
+	string usedLetter;
+
+	cout << "Provide a letter" << endl;
+
+	getline(cin, usedLetter);
+
+	cout << Encryptor(usedLetter) << endl;
+
+	return 0;
 }
