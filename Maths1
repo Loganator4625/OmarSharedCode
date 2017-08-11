@@ -1,0 +1,21 @@
+#include <iostream>
+#include <string>
+using namespace std;
+
+
+
+int main() {
+
+	cout << Encryptor('a') << endl;
+
+	return 0;
+}
+
+char Encryptor(char usedLetter) {
+
+	char encryptedLetter;
+
+	encryptedLetter = usedLetter + 1;
+
+	return encryptedLetter;
+}
