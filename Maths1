@@ -13,15 +13,26 @@ char Encryptor(char usedLetter) {
 
 int main() {
 
-	string usedLetter;
+	string usedWord;
+
+	string decryptedWord;
+
+	char inputLetter;
 
 	cout << "Provide a letter" << endl;
 
-	getline(cin, usedLetter);
+	getline(cin, usedWord);
 
-	char inputLetter = usedLetter[0];
+	for (size_t i = 0; i < usedWord.length(); i++)
+	{
+		inputLetter = usedWord[i];
 
-	cout << Encryptor(inputLetter) << endl;
+		inputLetter = Encryptor(inputLetter);
+
+		usedWord[i] = inputLetter;
+	}
+
+	cout << decryptedWord;
 
 	return 0;
 }
