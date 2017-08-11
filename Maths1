@@ -15,11 +15,11 @@ int main() {
 
 	string usedLetter;
 
-	char inputLetter = usedLetter[0];
-
 	cout << "Provide a letter" << endl;
 
 	getline(cin, usedLetter);
+
+	char inputLetter = usedLetter[0];
 
 	cout << Encryptor(inputLetter) << endl;
 
