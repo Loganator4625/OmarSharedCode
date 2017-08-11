@@ -11,21 +11,17 @@ char Encryptor(char usedLetter) {
 	return encryptedLetter;
 }
 
-string Decryptor() {
-
-
-
-}
-
 int main() {
 
 	string usedLetter;
+
+	char inputLetter = usedLetter[0];
 
 	cout << "Provide a letter" << endl;
 
 	getline(cin, usedLetter);
 
-	cout << Encryptor(usedLetter) << endl;
+	cout << Encryptor(inputLetter) << endl;
 
 	return 0;
 }
